@@ -5,11 +5,9 @@ Focus: Incremental Processing, Health Metrics, and Partition Management
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
-import logging
+from utils.logger import get_logger
 
-# Configure logging for production visibility
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger("ETLPipeline")
 
 from config.config import DATABASE_URL
 engine = create_engine(DATABASE_URL)
@@ -84,7 +82,7 @@ def run_pipeline():
         load_data(health_df, "service_health_dashboard", method="replace")
         
         # Hourly volume is cumulative history, so we 'append'
-        hourly_vol = logs_df.groupby([pd.to_datetime(logs_df["timestamp"]).dt.floor("H"), "level", "service_name"]).size().reset_index(name="count")
+        hourly_vol = logs_df.groupby([pd.to_datetime(logs_df["timestamp"]).dt.floor("h"), "level", "service_name"]).size().reset_index(name="count")
         load_data(hourly_vol, "analytics_volume_trends", method="append")
 
         logger.info("Pipeline run successful.")
