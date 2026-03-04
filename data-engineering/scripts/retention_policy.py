@@ -5,6 +5,7 @@ Automates the 'Detach and Drop' strategy for expired log partitions.
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
+from pathlib import Path
 from config.config import DATABASE_URL
 from utils.logger import get_logger
 
@@ -42,12 +43,27 @@ def enforce_retention():
                 if result > 0:
                     logger.info(f"Expiring logs for {policy['log_level']} on {partition_suffix}")
                     
-                    # 2. Detach Partition (separates it from the main table)
+                    # 2. Export Partition Data to CSV (Archival)
+                    archive_dir = Path(__file__).parent.parent / "archives"
+                    archive_dir.mkdir(parents=True, exist_ok=True)
+                    archive_file = archive_dir / f"{target_partition}.csv"
+                    
+                    logger.info(f"Archiving data to {archive_file}...")
+                    
+                    # Fetch data directly from the partition using pandas
+                    archived_data = pd.read_sql(f"SELECT * FROM {target_partition}", conn)
+                    if not archived_data.empty:
+                        archived_data.to_csv(archive_file, index=False)
+                        logger.info(f"Successfully exported {len(archived_data)} rows to {archive_file}")
+                    else:
+                        logger.info(f"Partition {target_partition} is empty. Skipping CSV creation.")
+
+                    # 3. Detach Partition (separates it from the main table)
                     conn.execute(text(f"ALTER TABLE log_entries DETACH PARTITION {target_partition};"))
                     
-                    # 3. Drop (or you could move this to S3/Cold Storage here)
+                    # 4. Drop Partition
                     conn.execute(text(f"DROP TABLE {target_partition};"))
-                    logger.info(f"Successfully dropped partition: {target_partition}")
+                    logger.info(f"Successfully dropped partition from database: {target_partition}")
                 
             except Exception as e:
                 logger.error(f"Failed to process partition {target_partition}: {e}")
