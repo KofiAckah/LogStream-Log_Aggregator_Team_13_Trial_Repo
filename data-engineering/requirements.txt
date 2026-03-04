@@ -5,6 +5,7 @@ sqlalchemy==2.0.27
 # Data Processing 
 pandas==2.2.0
 numpy==1.26.4
+pyarrow==12.0.0 
 
 # Environment & Logic
 python-dotenv==1.0.1
