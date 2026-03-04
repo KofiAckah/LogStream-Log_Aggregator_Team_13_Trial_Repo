@@ -23,6 +23,27 @@ CREATE TABLE log_entries (
     PRIMARY KEY (timestamp, id) 
 ) PARTITION BY RANGE (timestamp);
 
+-- 3. Users Table (For Authentication)
+-- Use the 'citext' extension for case-insensitive email storage
+-- This prevents 'Admin@Amalitech.com' and 'admin@amalitech.com' from being dual-registered
+CREATE EXTENSION IF NOT EXISTS citext;
+
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    email CITEXT UNIQUE NOT NULL, -- Prevents duplicate emails regardless of casing
+    name VARCHAR(100) NOT NULL,
+    password TEXT NOT NULL, -- Store Bcrypt/Argon2 hashes here
+    role VARCHAR(20) NOT NULL CHECK (role IN ('ADMIN', 'USER')),
+    active BOOLEAN DEFAULT true,
+    last_login_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexing for authentication
+-- When a user logs in, the Java backend will query 'WHERE email = ?'
+CREATE INDEX idx_users_email ON users (email);
+
 -- 3. Initial Partition (Required so the app doesn't crash on the first INSERT)
 CREATE TABLE log_entries_default PARTITION OF log_entries DEFAULT;
 
