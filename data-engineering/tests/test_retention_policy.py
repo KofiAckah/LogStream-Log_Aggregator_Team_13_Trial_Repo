@@ -24,10 +24,12 @@ class TestGetRetentionPolicies:
 class TestEnforceRetention:
     """Tests for the retention enforcement logic."""
 
+    @patch("retention_policy.pd.DataFrame.to_csv")
+    @patch("retention_policy.pd.read_sql")
     @patch("retention_policy.engine")
     @patch("retention_policy.get_retention_policies")
-    def test_detaches_and_drops_partition(self, mock_get_policies, mock_engine):
-        """Should detach and drop partitions that match expired policies."""
+    def test_detaches_and_drops_partition(self, mock_get_policies, mock_engine, mock_read_sql_partition, mock_to_csv):
+        """Should detach and drop partitions that match expired policies, archiving them first."""
         from retention_policy import enforce_retention
 
         mock_get_policies.return_value = pd.DataFrame({
@@ -41,9 +43,14 @@ class TestEnforceRetention:
         mock_engine.begin.return_value.__exit__ = MagicMock(return_value=False)
         # Simulate that the partition exists
         mock_conn.execute.return_value.scalar.return_value = 1
+        
+        # Simulate that the partition has data to archive
+        mock_read_sql_partition.return_value = pd.DataFrame({"id": [1, 2]})
 
         enforce_retention()
 
+        # Should have called to_csv to save the archive
+        mock_to_csv.assert_called_once()
         # Should have called execute at least 3 times:
         # 1. Check partition exists, 2. DETACH, 3. DROP
         assert mock_conn.execute.call_count >= 3
