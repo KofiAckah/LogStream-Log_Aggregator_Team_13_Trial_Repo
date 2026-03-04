@@ -81,9 +81,27 @@ def run_pipeline():
         # We use 'replace' for the dashboard because it represents the CURRENT status
         load_data(health_df, "service_health_dashboard", method="replace")
         
-        # Hourly volume is cumulative history, so we 'append'
+        # 5. Load Volume Trends (Idempotent Append)
         hourly_vol = logs_df.groupby([pd.to_datetime(logs_df["timestamp"]).dt.floor("h"), "level", "service_name"]).size().reset_index(name="count")
-        load_data(hourly_vol, "analytics_volume_trends", method="append")
+        
+        if not hourly_vol.empty:
+            # 5a. Identify the unique hours in this batch
+            unique_hours = hourly_vol["timestamp"].dt.strftime('%Y-%m-%d %H:%M:%S').unique().tolist()
+            
+            # 5b. Delete existing records for these hours to prevent duplicates (Idempotency)
+            # Format list for SQL IN clause
+            hours_str = ", ".join([f"'{h}'" for h in unique_hours])
+            delete_query = text(f"DELETE FROM analytics_volume_trends WHERE timestamp IN ({hours_str})")
+            
+            with engine.begin() as conn:
+                # We catch errors here in case the table doesn't exist yet (first run)
+                try:
+                    conn.execute(delete_query)
+                except Exception as e:
+                    logger.warning(f"Could not cleanly delete existing volume trends (table might be new): {e}")
+
+            # 5c. Append the fresh data
+            load_data(hourly_vol, "analytics_volume_trends", method="append")
 
         logger.info("Pipeline run successful.")
         
