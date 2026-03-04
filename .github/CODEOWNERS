@@ -13,11 +13,12 @@
 # Backend - only backend developers
 # -------------------------------------------------------------
 /backend/                       @nlenjibi @bograh @db-keli
-
+/backend/dockerfile             @KofiAckah
 # -------------------------------------------------------------
 # Data Engineering - only data engineers
 # -------------------------------------------------------------
 /data-engineering/              @jill-break @Jerry-Khobby
+/data-engineering/dockerfile    @KofiAckah
 
 # -------------------------------------------------------------
 # DevOps - only DevOps engineer
