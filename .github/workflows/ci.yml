@@ -42,6 +42,9 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y postgresql-client
+
       - name: Run init SQL on PostgreSQL
         # Creates the PARTITIONED log_entries table + extensions.
         # Must run BEFORE the backend starts — Hibernate (ddl-auto: update)
@@ -105,6 +108,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y postgresql-client
+
       - name: Run init SQL on PostgreSQL
         # Creates the partitioned log_entries table required by the ETL pipeline
         run: |
@@ -120,9 +126,6 @@ jobs:
           DB_NAME: logstream
           DB_USER: logstream
           DB_PASSWORD: logstream123
-          # conftest.py adds scripts/ to sys.path so tests can import
-          # etl_pipeline, data_generator etc. directly.
-          # PYTHONPATH=. makes config.config importable too.
           PYTHONPATH: .
         run: python -m pytest tests/ -v --tb=short
 
@@ -147,8 +150,6 @@ jobs:
         with:
           context: backend
           file: backend/Dockerfile
-          # load: true is required to push the image into the local Docker
-          # daemon so the "Verify" step below can run `docker images`.
           load: true
           push: false
           tags: logstream-backend:latest
