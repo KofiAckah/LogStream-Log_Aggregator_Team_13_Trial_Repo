@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 # Create a logs directory in the project root if it doesn't exist
-LOG_DIR = Path(__file__).parent.parent / "logs"
+LOG_DIR = Path(__file__).parent.parent / "../logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 def get_logger(name: str):
@@ -29,7 +29,9 @@ def get_logger(name: str):
     logger.addHandler(console_handler)
 
     # File Handler (Persistent logs for debugging)
-    file_handler = logging.FileHandler(LOG_DIR / "etl_process.log")
+    # Use the logger's name and convert to snake_case for the filename
+    log_filename = f"{name.lower().replace(' ', '_')}.log"
+    file_handler = logging.FileHandler(LOG_DIR / log_filename)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
