@@ -3,17 +3,21 @@ package com.logstream.dto;
 import com.logstream.model.LogLevel;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
-import java.time.Instant;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.Map;
 
-@Data @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class LogEntryRequest {
 
     @NotBlank(message = "Service name is required")
     private String serviceName;
-
-    private Instant timestamp;
 
     @NotNull(message = "Log level is required")
     private LogLevel level;
