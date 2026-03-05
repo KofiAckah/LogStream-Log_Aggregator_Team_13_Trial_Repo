@@ -2,16 +2,19 @@ package com.logstream.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Data @NoArgsConstructor @AllArgsConstructor
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class AuthRequest {
 
-    @NotBlank @Email
+    @NotBlank
+    @Email
     private String email;
 
     @NotBlank
     private String password;
-
-    private String fullName;
 }
