@@ -83,53 +83,6 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder().message(ex.getMessage()).build());
     }
 
-
-
-    @ExceptionHandler({
-            BadCredentialsException.class,
-            UsernameNotFoundException.class
-    })
-    public ResponseEntity<ErrorResponse> handleBadCredentials(AuthenticationException ex) {
-        // Generic message intentional — do not reveal whether the user exists.
-        log.warn("Authentication failure in MVC layer [{}]: {}", ex.getClass().getSimpleName(), ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse.builder()
-                        .message("Invalid username or password.")
-                        .build());
-    }
-
-    @ExceptionHandler({
-            AccountExpiredException.class,
-            LockedException.class,
-            DisabledException.class,
-            CredentialsExpiredException.class
-    })
-    public ResponseEntity<ErrorResponse> handleAccountStatus(AuthenticationException ex) {
-        log.warn("Account status failure in MVC layer [{}]: {}", ex.getClass().getSimpleName(), ex.getMessage());
-        String message = resolveAccountStatusMessage(ex);
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse.builder().message(message).build());
-    }
-
-    /**
-     * Custom domain token exceptions (thrown from token validation services,
-     * not from the Security filter chain).
-     */
-    @ExceptionHandler({
-            TokenNotFoundException.class,
-            TokenExpiredException.class,
-            InvalidTokenException.class
-    })
-    public ResponseEntity<ErrorResponse> handleTokenExceptions(RuntimeException ex) {
-        log.warn("Token error [{}]: {}", ex.getClass().getSimpleName(), ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ErrorResponse.builder().message(ex.getMessage()).build());
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════
-    // 403 – Forbidden
-    // ══════════════════════════════════════════════════════════════════════════
-
     /*
      * NOTE: AccessDeniedException from the Security filter chain is handled by
      * CustomAccessDeniedHandler. This handler covers AccessDeniedException thrown
@@ -190,42 +143,8 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.builder().message(ex.getMessage()).build());
     }
 
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(
-            DataIntegrityViolationException ex) {
-        String cause = ex.getMostSpecificCause() != null
-                ? ex.getMostSpecificCause().getMessage()
-                : ex.getMessage();
-        log.warn("Data integrity violation: {}", cause);
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorResponse.builder()
-                        .message("A data conflict occurred. The resource may already exist.")
-                        .build());
-    }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // 500 – Internal Server Error (catch-all, must be last)
-    // ══════════════════════════════════════════════════════════════════════════
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
-        // Log full stack trace for unexpected errors — critical for debugging production issues.
-        log.error("Unexpected error on '{}': {}", request.getRequestURI(), ex.getMessage(), ex);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.builder()
-                        .message("An unexpected error occurred. Please contact support if this persists.")
-                        .build());
-    }
 
-    // ══════════════════════════════════════════════════════════════════════════
-    // Private helpers
-    // ══════════════════════════════════════════════════════════════════════════
 
-    private String resolveAccountStatusMessage(AuthenticationException ex) {
-        if (ex instanceof LockedException)            return "Your account is locked. Please contact support.";
-        if (ex instanceof DisabledException)          return "Your account has been disabled. Please contact support.";
-        if (ex instanceof AccountExpiredException)    return "Your account has expired. Please contact support.";
-        if (ex instanceof CredentialsExpiredException) return "Your password has expired. Please reset your password.";
-        return "Your account is not in a valid state. Please contact support.";
-    }
 }
