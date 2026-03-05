@@ -1,9 +1,4 @@
 spring:
-  application:
-    name: LogStream
-  profiles:
-    active: dev
-
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/logstream}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -35,3 +30,15 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+    
+logging:
+  level:
+    root: INFO
+    com.smart_ecomernce_api: DEBUG
+    org.hibernate.tool.schema: ERROR
+    org.springframework.graphql: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.cache: DEBUG
+    com.github.benmanes.caffeine: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
