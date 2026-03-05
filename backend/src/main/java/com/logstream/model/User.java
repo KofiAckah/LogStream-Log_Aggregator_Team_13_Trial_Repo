@@ -22,7 +22,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false, columnDefinition = "CITEXT")
+    @Column(unique = true, nullable = false)
     private String email;
 
     @Column(nullable = false)
@@ -34,6 +34,7 @@ public class User {
     @Column(nullable = false)
     private Role role;
 
+    @Builder.Default
     private boolean active = true;
 
     @Column(updatable = false)
