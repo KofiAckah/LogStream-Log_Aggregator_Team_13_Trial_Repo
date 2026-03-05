@@ -129,3 +129,7 @@ Thumbs.db
 tmp/
 temp/
 *.tmp
+__pycache__
+data-engineering/.venv
+__init__.py
+data-engineering/scripts/logs/etl_process.log
