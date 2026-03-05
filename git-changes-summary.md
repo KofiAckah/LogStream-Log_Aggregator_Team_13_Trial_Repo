@@ -7,85 +7,103 @@
 ### 🆕 New Files Added
 
 #### Environment Configuration Files
-- **`backend/src/main/resources/application-dev.yml`** (238 lines)
+- **`backend/src/main/resources/application-dev.yml`** (45 lines)
   - Development environment configuration
   - PostgreSQL database with environment variables
-  - GraphQL with GraphiQL enabled
-  - OAuth2 setup (Google, GitHub, Facebook)
   - JWT authentication configuration
   - Swagger/OpenAPI documentation
-  - Caffeine caching with short TTL for development
-  - CORS configuration for localhost:3000
-
-- **`backend/src/main/resources/application-prod.yml`** (121 lines)
-  - Production environment configuration
-  - PostgreSQL with production-optimized settings
-  - Prometheus metrics enabled
-  - Rate limiting enabled
-  - Graceful shutdown configuration
-  - File logging with rolling policy
-  - Management endpoints on separate port (8081)
-  - Enhanced security settings
-
-- **`backend/src/main/resources/application-test.yml`** (202 lines)
-  - Test environment configuration
-  - Minimal caching for testing
   - Debug logging enabled
-  - GraphQL with GraphiQL
-  - OAuth2 configuration
+  - File upload size limits (50MB)
+
+- **`backend/src/main/resources/application-prod.yml`** (33 lines)
+  - Production environment configuration
+  - PostgreSQL database configuration
   - JWT authentication
   - Swagger documentation
-  - Test-optimized database settings
+  - Production-optimized settings
+
+- **`backend/src/main/resources/application-test.yml`** (33 lines)
+  - Test environment configuration
+  - PostgreSQL database
+  - JWT authentication
+  - Swagger documentation
+  - Test-optimized settings
 
 ### 📝 Modified Files
 
-#### Compiled Java Classes
-The following compiled `.class` files have been updated, indicating source code changes:
+#### Main Configuration
+- **`backend/src/main/resources/application.yml`**
+  - Added application name: "LogStream"
+  - Set active profile to "dev"
+  - Updated with LogStream-specific configuration
 
-- `backend/target/classes/com/logstream/config/JwtAuthFilter.class`
-- `backend/target/classes/com/logstream/config/JwtService.class`
-- `backend/target/classes/com/logstream/config/SecurityConfig.class`
-- `backend/target/classes/com/logstream/controller/AuthController.class`
-- `backend/target/classes/com/logstream/dto/AuthRequest.class`
-- `backend/target/classes/com/logstream/dto/RegisterRequest.class`
-- `backend/target/classes/com/logstream/service/AuthService.class`
+#### Build Configuration
+- **`backend/pom.xml`** (41 lines)
+  - Complete Maven configuration restored
+  - Java version set to 21
+  - All required dependencies included:
+    - Spring Boot starters (web, data-jpa, security, validation)
+    - PostgreSQL driver
+    - Lombok for code generation
+    - JWT libraries (jjwt-api, jjwt-impl, jjwt-jackson)
+    - SpringDoc OpenAPI for documentation
+    - Spring Boot Test
+  - Spring Boot Maven plugin configured
+
+#### Deleted Compiled Classes
+All compiled `.class` files in `backend/target/classes/` have been deleted:
+- Main application class
+- Configuration classes (CorsConfig, JwtAuthFilter, JwtService, SecurityConfig)
+- Controller classes (AuthController, LogController, RetentionController)
+- DTO classes (AnalyticsResponse, AuthRequest, AuthResponse, etc.)
+- Model classes (LogEntry, LogLevel, RetentionPolicy, Role, User)
+- Repository classes
+- Service classes
 
 ### 📊 Configuration Highlights
 
 #### Database Configuration
-- **Dev/Test**: Environment variable driven with `ddl-auto: update`
-- **Prod**: Hardcoded PostgreSQL settings with `ddl-auto: validate`
+- **All environments**: PostgreSQL with LogStream database
+- **Environment variables**: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`
+- **Hibernate DDL**: `update` for all environments
+- **Dialect**: PostgreSQL
 
 #### Security Features
-- JWT authentication with configurable expiration
-- OAuth2 integration (Google, GitHub, Facebook)
-- CORS configuration for frontend integration
-- Rate limiting (enabled in production)
+- JWT authentication with 24-hour expiration
+- Secret key: `logstream-secret-key-amalitech-2024-secure`
+- Spring Security integration
 
-#### Monitoring & Observability
-- **Prod**: Prometheus metrics, health checks, cache monitoring
-- **Dev/Test**: Basic health checks and debug logging
+#### API Documentation
+- SpringDoc OpenAPI integration
+- Swagger UI at `/swagger-ui.html`
+- API docs at `/api-docs`
 
-#### Performance Optimizations
-- HikariCP connection pooling
-- Hibernate batch processing
-- Caffeine caching with environment-specific TTL
-- Query plan caching
+#### File Upload
+- Maximum file size: 50MB
+- Maximum request size: 50MB
+
+### 🔧 Build Status
+- **Branch Status**: 17 commits ahead of origin
+- **Build Issues**: Previous Lombok compilation errors resolved with restored pom.xml
+- **Ready for Build**: Maven configuration complete
 
 ### 🚀 Next Steps
 
-All files are currently untracked and ready to be committed:
+All files are ready to be committed:
 
 ```bash
 git add backend/src/main/resources/application-dev.yml
 git add backend/src/main/resources/application-prod.yml
 git add backend/src/main/resources/application-test.yml
-git commit -m "feat: Add environment-specific configuration files"
+git add backend/src/main/resources/application.yml
+git add backend/pom.xml
+git commit -m "feat: Add environment configurations and restore build configuration"
 ```
 
 ### 📋 Notes
 
-- The configuration files follow Spring Boot's profile-based configuration pattern
-- Environment variables are used for sensitive data in non-production environments
-- Production configuration includes security best practices and monitoring
-- The branch has diverged from origin with 14 local commits vs 1 remote commit
+- The project now has complete environment-specific configurations
+- Maven build configuration has been restored with all dependencies
+- Java version updated to 21
+- All compiled classes were deleted and will be regenerated on next build
+- The configuration follows Spring Boot best practices for multi-environment deployment
