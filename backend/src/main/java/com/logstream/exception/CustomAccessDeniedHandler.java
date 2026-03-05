@@ -16,19 +16,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Handles all 403 Forbidden errors within the Spring Security filter chain.
- *
- * <p>Invoked when a fully authenticated user attempts to access a resource for
- * which they lack the required role or permission. This replaces the inline lambda
- * previously defined in {@code SecurityConfig}.
- *
- * <p>Note: Do not confuse this with {@code CustomAuthenticationEntryPoint}.
- * <ul>
- *   <li>{@code CustomAuthenticationEntryPoint} → 401 (not authenticated)</li>
- *   <li>{@code CustomAccessDeniedHandler}      → 403 (authenticated but not authorized)</li>
- * </ul>
- */
+
 @Slf4j
 @Component
 public class CustomAccessDeniedHandler implements AccessDeniedHandler {
