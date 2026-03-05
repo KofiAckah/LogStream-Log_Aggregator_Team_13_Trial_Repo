@@ -1,6 +1,28 @@
-version: "3.9"
+# ─────────────────────────────────────────────────────────────
+# LogStream — Full-Stack Docker Compose
+#
+# Service boot order:
+#   1. postgres  (healthcheck: pg_isready)
+#        └─ runs data-engineering/db/ddl/init.sql on first start
+#           → creates the PARTITIONED log_entries table + extensions
+#   2. backend   (healthcheck: /api-docs endpoint)
+#        └─ Hibernate creates users & retention_policies tables
+#           → data.sql seeds initial rows
+#   3. data-engineering
+#        └─ runs ETL pipeline every 15 min (override CMD to change)
+#
+# Useful one-off commands:
+#   Generate test data:
+#     docker compose run --rm data-engineering python scripts/data_generator.py --count 10000 --days 30
+#   Run retention policy:
+#     docker compose run --rm data-engineering python scripts/retention_policy.py
+#   Import a generated JSON file into the DB (see user_guide_v2.md §3):
+#     docker compose run --rm -e FILE_NAME=data/logs_YYYYMMDD_HHMMSS.json data-engineering python import_logs.py
+# ─────────────────────────────────────────────────────────────
 
 services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: logstream-postgres
@@ -12,24 +34,79 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Init script runs ONCE on a fresh data volume.
+      # Creates the partitioned log_entries table that the
+      # ETL pipeline requires (Hibernate cannot create this).
+      - ./data-engineering/db/ddl/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logstream"]
+      test: ["CMD-SHELL", "pg_isready -U logstream -d logstream"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
+  # ── Backend (Spring Boot) ────────────────────────────────────
   backend:
     build: ./backend
     container_name: logstream-backend
     ports:
       - "8080:8080"
     environment:
+      SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logstream
       SPRING_DATASOURCE_USERNAME: logstream
       SPRING_DATASOURCE_PASSWORD: logstream123
+      JWT_SECRET: logstream-secret-key-amalitech-2024-secure
     depends_on:
       postgres:
         condition: service_healthy
+    # Healthcheck uses the public Swagger API-docs endpoint.
+    # start_period gives Spring Boot enough time to fully start.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:8080/api-docs || exit 1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 90s
+      retries: 5
+    restart: unless-stopped
+
+  # ── Data Engineering (ETL + Generator) ──────────────────────
+  data-engineering:
+    build: ./data-engineering
+    container_name: logstream-data-engineering
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: logstream
+      DB_USER: logstream
+      DB_PASSWORD: logstream123
+      PYTHONPATH: /app
+    # Run the ETL pipeline every 15 minutes.
+    # On the very first run there may be little data — that is fine;
+    # the pipeline logs "No new logs found" and waits for the next cycle.
+    # Override this command when running one-off scripts (see comments above).
+    command: >
+      sh -c "
+        echo 'Waiting 10 s for backend to seed initial data...' &&
+        sleep 10 &&
+        while true; do
+          echo '── ETL run at '$(date -u +%Y-%m-%dT%H:%M:%SZ)'──' &&
+          python scripts/etl_pipeline.py;
+          echo 'Next run in 15 min';
+          sleep 900;
+        done
+      "
+    volumes:
+      # Named volumes keep generated JSON files and CSV archives
+      # between container restarts.
+      - de_data:/app/data
+      - de_archives:/app/archives
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
 
 volumes:
   pgdata:
+  de_data:
+  de_archives:
