@@ -1,1 +1,6 @@
 # Hello Team
+data-engineering/.env
+__pycache__
+data-engineering/.venv
+__init__.py
+data-engineering/scripts/logs/etl_process.log
