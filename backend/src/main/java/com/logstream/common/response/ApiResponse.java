@@ -1,4 +1,4 @@
-package com.smart_ecomernce_api.smart_ecomernce_api.common.response;
+package com.logstream.common.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
