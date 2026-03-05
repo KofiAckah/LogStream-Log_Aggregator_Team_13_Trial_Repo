@@ -8,12 +8,13 @@ ON CONFLICT (id) DO NOTHING;
 
 
 -- Seed retention policies
-INSERT INTO retention_policies (id, name, retention_days, log_level, active)
-VALUES (1, 'Error Retention', 90, 'ERROR', true),
-       (2, 'Warning Retention', 30, 'WARN', true),
-       (3, 'Info Retention', 14, 'INFO', true),
-       (4, 'Debug Retention', 7, 'DEBUG', true)
+INSERT INTO retention_policies (id, service_name, retention_days, archive_enabled)
+VALUES (1, 'ERROR', 90, false),
+       (2, 'WARN', 30, false),
+       (3, 'INFO', 14, false),
+       (4, 'DEBUG', 7, false)
 ON CONFLICT (id) DO NOTHING;
+
 
 -- Seed sample log entries
 INSERT INTO log_entries (id, timestamp, level, source, message, service_name, created_at)
