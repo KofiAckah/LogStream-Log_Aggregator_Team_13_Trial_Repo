@@ -1,19 +1,19 @@
 package com.logstream.model;
 
 import java.io.Serializable;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
 public class LogEntryId implements Serializable {
 
-    private OffsetDateTime timestamp;
+    private Instant timestamp;
     private UUID id;
 
     public LogEntryId() {
     }
 
-    public LogEntryId(OffsetDateTime timestamp, UUID id) {
+    public LogEntryId(Instant timestamp, UUID id) {
         this.timestamp = timestamp;
         this.id = id;
     }
