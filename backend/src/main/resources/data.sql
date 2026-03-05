@@ -1,8 +1,8 @@
 -- Seed admin user (password: password123)
 INSERT INTO users (id, email, name, password, role, active, created_at)
-VALUES (1, 'admin@amalitech.com', 'Admin User', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN',
+VALUES (1, 'admin@amalitech.com', 'Admin User', '$2a$12$Qu7RJC3wCVyqn8DkdItaqOJ2W4IBrsVa30gwfEYS116PG3FG2isSC', 'ADMIN',
         true, NOW()),
-       (2, 'user@amalitech.com', 'Test User', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'USER',
+       (2, 'user@amalitech.com', 'Test User', '$2a$12$Qu7RJC3wCVyqn8DkdItaqOJ2W4IBrsVa30gwfEYS116PG3FG2isSC', 'USER',
         true, NOW())
 ON CONFLICT (id) DO NOTHING;
 
