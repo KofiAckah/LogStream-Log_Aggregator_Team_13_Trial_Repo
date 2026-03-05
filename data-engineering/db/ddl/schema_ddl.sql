@@ -4,10 +4,12 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- 1. Retention Policies (As defined by Backend)
 CREATE TABLE retention_policies (
     id SERIAL PRIMARY KEY,
+    service_name VARCHAR(100), -- nullable = global policy
     name VARCHAR(100),
     retention_days INTEGER DEFAULT 30,
-    log_level VARCHAR(10), -- TRACE, DEBUG, INFO, WARN, ERROR
-    active BOOLEAN DEFAULT true
+    log_level VARCHAR(10) CHECK (log_level IN ('TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR')),
+    active BOOLEAN DEFAULT true,
+    UNIQUE (service_name, log_level) -- prevent duplicate policies
 );
 
 -- 2. Partitioned Log Entries
@@ -15,7 +17,7 @@ CREATE TABLE retention_policies (
 CREATE TABLE log_entries (
     id UUID DEFAULT gen_random_uuid(),
     timestamp TIMESTAMPTZ NOT NULL,
-    level VARCHAR(10) NOT NULL,
+    level VARCHAR(10) NOT NULL CHECK (level IN ('TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR')),
     source VARCHAR(100),
     message TEXT NOT NULL,
     service_name VARCHAR(100) NOT NULL,

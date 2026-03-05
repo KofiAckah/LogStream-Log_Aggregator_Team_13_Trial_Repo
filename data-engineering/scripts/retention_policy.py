@@ -1,6 +1,7 @@
 """
-LogStream Retention Enforcer - Issue #28
-Automates the 'Detach and Drop' strategy for expired log partitions.
+LogStream Retention Enforcer - Per-Service Archival
+Enforces configurable retention policies per service and log level.
+Archives expired rows to CSV before permanently deleting them.
 """
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -12,61 +13,75 @@ from utils.logger import get_logger
 logger = get_logger("RetentionEnforcer")
 engine = create_engine(DATABASE_URL)
 
+
 def get_retention_policies():
-    """Fetches active retention rules set by the admin."""
-    query = "SELECT log_level, retention_days FROM retention_policies WHERE active = true"
+    """Fetches active retention rules set by the admin, including per-service policies."""
+    query = "SELECT service_name, log_level, retention_days FROM retention_policies WHERE active = true"
     return pd.read_sql(query, engine)
 
+
 def enforce_retention():
+    """
+    Enforces retention policies by:
+    1. Building per-service WHERE clauses from the retention_policies table.
+    2. Selecting expired rows matching each policy.
+    3. Exporting them to a dated CSV archive.
+    4. Deleting those exact rows from the database.
+    
+    If no policies exist, falls back to a global 30-day default for all services/levels.
+    """
     policies = get_retention_policies()
     if policies.empty:
-        logger.warning("No active retention policies found. Using default 30 days.")
-        # Fallback to a global 30-day window
-        policies = pd.DataFrame([{"log_level": "ALL", "retention_days": 30}])
+        logger.warning("No active retention policies found. Using default 30 days for all logs.")
+        policies = pd.DataFrame([{"service_name": None, "log_level": None, "retention_days": 30}])
+
+    archive_dir = Path(__file__).parent.parent / "archives"
+    archive_dir.mkdir(parents=True, exist_ok=True)
 
     with engine.begin() as conn:
         for _, policy in policies.iterrows():
-            # Calculate the cutoff date
-            cutoff_date = datetime.utcnow() - timedelta(days=int(policy['retention_days']))
-            partition_suffix = cutoff_date.strftime('%Y_%m_%d')
-            target_partition = f"log_entries_y{partition_suffix}"
+            service = policy.get("service_name")  # None = global
+            level = policy.get("log_level")        # None = all levels
+            retention_days = int(policy["retention_days"])
+            cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+
+            # Build the dynamic WHERE clause
+            conditions = ["timestamp < :cutoff"]
+            params = {"cutoff": cutoff_date}
+
+            if pd.notna(service):
+                conditions.append("service_name = :service")
+                params["service"] = service
+
+            if pd.notna(level):
+                conditions.append("level = :level")
+                params["level"] = level
+
+            where_clause = " AND ".join(conditions)
+            policy_label = f"{service or 'ALL_SERVICES'}_{level or 'ALL_LEVELS'}_{cutoff_date.strftime('%Y%m%d')}"
 
             try:
-                # 1. Check if the specific partition exists
-                exists_query = text("""
-                    SELECT count(*) FROM pg_class c 
-                    JOIN pg_namespace n ON n.oid = c.relnamespace 
-                    WHERE c.relname = :partition
-                """)
-                result = conn.execute(exists_query, {"partition": target_partition}).scalar()
+                # 1. Select expired rows
+                select_query = text(f"SELECT * FROM log_entries WHERE {where_clause}")
+                expired_data = pd.read_sql(select_query, conn, params=params)
 
-                if result > 0:
-                    logger.info(f"Expiring logs for {policy['log_level']} on {partition_suffix}")
-                    
-                    # 2. Export Partition Data to CSV (Archival)
-                    archive_dir = Path(__file__).parent.parent / "archives"
-                    archive_dir.mkdir(parents=True, exist_ok=True)
-                    archive_file = archive_dir / f"{target_partition}.csv"
-                    
-                    logger.info(f"Archiving data to {archive_file}...")
-                    
-                    # Fetch data directly from the partition using pandas
-                    archived_data = pd.read_sql(f"SELECT * FROM {target_partition}", conn)
-                    if not archived_data.empty:
-                        archived_data.to_csv(archive_file, index=False)
-                        logger.info(f"Successfully exported {len(archived_data)} rows to {archive_file}")
-                    else:
-                        logger.info(f"Partition {target_partition} is empty. Skipping CSV creation.")
+                if expired_data.empty:
+                    logger.info(f"No expired logs found for policy [{policy_label}]. Skipping.")
+                    continue
 
-                    # 3. Detach Partition (separates it from the main table)
-                    conn.execute(text(f"ALTER TABLE log_entries DETACH PARTITION {target_partition};"))
-                    
-                    # 4. Drop Partition
-                    conn.execute(text(f"DROP TABLE {target_partition};"))
-                    logger.info(f"Successfully dropped partition from database: {target_partition}")
-                
+                # 2. Archive to CSV
+                archive_file = archive_dir / f"archived_{policy_label}.csv"
+                expired_data.to_csv(archive_file, index=False)
+                logger.info(f"Archived {len(expired_data)} rows to {archive_file}")
+
+                # 3. Delete the archived rows from the database
+                delete_query = text(f"DELETE FROM log_entries WHERE {where_clause}")
+                result = conn.execute(delete_query, params)
+                logger.info(f"Deleted {result.rowcount} expired rows for policy [{policy_label}]")
+
             except Exception as e:
-                logger.error(f"Failed to process partition {target_partition}: {e}")
+                logger.error(f"Failed to enforce policy [{policy_label}]: {e}")
+
 
 if __name__ == "__main__":
     enforce_retention()
