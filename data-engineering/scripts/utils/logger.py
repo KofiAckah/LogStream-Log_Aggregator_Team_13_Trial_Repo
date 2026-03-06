@@ -29,7 +29,7 @@ def get_logger(name: str):
     logger.addHandler(console_handler)
 
     # File Handler (Persistent logs for debugging)
-    file_handler = logging.FileHandler(LOG_DIR / "etl_process.log")
+    file_handler = logging.FileHandler(LOG_DIR / "etl_process.log",encoding="utf-8")
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
