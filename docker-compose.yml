@@ -2,21 +2,27 @@
 # LogStream — Full-Stack Docker Compose
 #
 # Service boot order:
-#   1. postgres  (healthcheck: pg_isready)
-#        └─ runs data-engineering/db/ddl/init.sql on first start
-#           → creates the PARTITIONED log_entries table + extensions
-#   2. backend   (healthcheck: /api-docs endpoint)
-#        └─ Hibernate creates users & retention_policies tables
-#           → data.sql seeds initial rows
-#   3. data-engineering
-#        └─ runs ETL pipeline every 15 min (override CMD to change)
+#   1. postgres        (healthcheck: pg_isready)
+#        └─ runs init.sql → creates PARTITIONED log_entries table
+#        └─ runs init_metabase.sql → creates metabase database
+#   2. minio           (healthcheck: curl /minio/health/live)
+#        └─ object storage for log files
+#   3. backend         (healthcheck: removed — JWT blocks /api-docs)
+#        └─ Spring Boot REST API
+#   4. data-engineering
+#        └─ runs ETL pipeline every 15 min
+#   5. data-engine
+#        └─ stays alive for manual script runs
+#   6. metabase        (analytics at http://localhost:3000)
+#   7. dashboard       (Python Dash at http://localhost:8050)
+#        └─ commented out until scripts/dashboard.py is created
 #
 # Useful one-off commands:
 #   Generate test data:
 #     docker compose run --rm data-engineering python scripts/data_generator.py --count 10000 --days 30
 #   Run retention policy:
 #     docker compose run --rm data-engineering python scripts/retention_policy.py
-#   Import a generated JSON file into the DB (see user_guide_v2.md §3):
+#   Import a generated JSON file into the DB:
 #     docker compose run --rm -e FILE_NAME=data/logs_YYYYMMDD_HHMMSS.json data-engineering python import_logs.py
 # ─────────────────────────────────────────────────────────────
 
@@ -26,20 +32,42 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: logstream-postgres
+    env_file: .env
     environment:
-      POSTGRES_DB: logstream
-      POSTGRES_USER: logstream
-      POSTGRES_PASSWORD: logstream123
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Init script runs ONCE on a fresh data volume.
-      # Creates the partitioned log_entries table that the
-      # ETL pipeline requires (Hibernate cannot create this).
+      # 01 — creates the partitioned log_entries table (ETL requires this)
       - ./data-engineering/db/ddl/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      # 02 — creates the separate metabase database
+      - ./data-engineering/db/ddl/init_metabase.sql:/docker-entrypoint-initdb.d/02_init_metabase.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U logstream -d logstream"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ── MinIO (Object Storage) ───────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
+    container_name: logstream-minio
+    env_file: .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,40 +79,36 @@ services:
     container_name: logstream-backend
     ports:
       - "8080:8080"
+    env_file: .env
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/logstream
-      SPRING_DATASOURCE_USERNAME: logstream
-      SPRING_DATASOURCE_PASSWORD: logstream123
-      JWT_SECRET: logstream-secret-key-amalitech-2024-secure
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
-    # Healthcheck uses the public Swagger API-docs endpoint.
-    # start_period gives Spring Boot enough time to fully start.
-    healthcheck:
-      test: ["CMD-SHELL", "wget --quiet --spider http://localhost:8080/api-docs || exit 1"]
-      interval: 30s
-      timeout: 10s
-      start_period: 90s
-      retries: 5
+    # NOTE TO BACKEND TEAM: /api-docs requires authentication — whitelist it
+    # in Spring Security or enable /actuator/health for proper healthchecks.
+    # Healthcheck removed temporarily to prevent false unhealthy status.
     restart: unless-stopped
 
   # ── Data Engineering (ETL + Generator) ──────────────────────
   data-engineering:
     build: ./data-engineering
     container_name: logstream-data-engineering
+    env_file: .env
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_NAME: logstream
-      DB_USER: logstream
-      DB_PASSWORD: logstream123
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
       PYTHONPATH: /app
-    # Run the ETL pipeline every 15 minutes.
-    # On the very first run there may be little data — that is fine;
-    # the pipeline logs "No new logs found" and waits for the next cycle.
-    # Override this command when running one-off scripts (see comments above).
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
     command: >
       sh -c "
         echo 'Waiting 10 s for backend to seed initial data...' &&
@@ -97,16 +121,96 @@ services:
         done
       "
     volumes:
-      # Named volumes keep generated JSON files and CSV archives
-      # between container restarts.
       - de_data:/app/data
       - de_archives:/app/archives
     depends_on:
       postgres:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     restart: on-failure
+
+  # ── Data Engine (Manual Script Runner) ───────────────────────
+  # Stays alive so developers can exec into it and run scripts manually.
+  # Usage: docker compose exec data-engine python scripts/data_generator.py
+  data-engine:
+    build: ./data-engineering
+    container_name: logstream-data-engine
+    env_file: .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      PYTHONPATH: /app
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - ./data-engineering/scripts:/app/scripts
+      - ./data-engineering/tests:/app/tests
+      - de_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: ["sleep", "infinity"]
+    restart: unless-stopped
+
+  # ── Metabase (Analytics Dashboard) ──────────────────────────
+  metabase:
+    image: metabase/metabase:v0.59.x
+    container_name: logstream-metabase
+    env_file: .env
+    environment:
+      # Metabase stores its own app data in the separate metabase database
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${DB_USERNAME}
+      MB_DB_PASS: ${DB_PASSWORD}
+      MB_DB_HOST: postgres
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Dashboard (Python Dash) ──────────────────────────────────
+  # NOTE TO DATA ENGINEERING TEAM: dashboard.py does not exist yet.
+  # Uncomment this service once scripts/dashboard.py has been created.
+  # dashboard:
+  #   build: ./data-engineering
+  #   container_name: logstream-dashboard
+  #   env_file: .env
+  #   environment:
+  #     DB_HOST: postgres
+  #     DB_PORT: "5432"
+  #     DB_NAME: ${DB_NAME}
+  #     DB_USER: ${DB_USERNAME}
+  #     DB_PASSWORD: ${DB_PASSWORD}
+  #     PYTHONPATH: /app
+  #   command: python scripts/dashboard.py
+  #   ports:
+  #     - "8050:8050"
+  #   volumes:
+  #     - ./data-engineering/scripts:/app/scripts
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8050"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+  #   restart: unless-stopped
 
 volumes:
   pgdata:
+  minio_data:
   de_data:
   de_archives:
