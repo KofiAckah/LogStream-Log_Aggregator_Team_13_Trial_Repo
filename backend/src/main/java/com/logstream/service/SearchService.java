@@ -3,12 +3,15 @@ package com.logstream.service;
 import com.logstream.dto.LogEntryResponse;
 import com.logstream.dto.LogSearchRequest;
 import com.logstream.model.LogEntry;
-import com.logstream.model.LogLevel;
 import com.logstream.repository.LogEntryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -17,25 +20,41 @@ public class SearchService {
 
     private final LogEntryRepository logEntryRepository;
 
-    public Page<LogEntryResponse> searchLogs(LogSearchRequest request) {
+    public List<LogEntryResponse> searchLogs(LogSearchRequest request) {
         PageRequest pageable = PageRequest.of(request.getPage(), request.getSize());
-        Page<LogEntry> results;
 
-        if (request.getServiceName() != null && request.getLevel() != null) {
-            results = logEntryRepository.findByServiceNameAndLevel(
-                request.getServiceName(), request.getLevel(), pageable);
-        } else if (request.getServiceName() != null) {
-            results = logEntryRepository.findByServiceName(request.getServiceName(), pageable);
-        } else if (request.getLevel() != null) {
-            results = logEntryRepository.findByLevel(request.getLevel(), pageable);
-        } else {
-            results = logEntryRepository.findAll(pageable);
+        Specification<LogEntry> spec = Specification.where(null);
+
+        if (request.getServiceName() != null && !request.getServiceName().isBlank()) {
+            spec = spec.and((root, query, cb) ->
+                cb.equal(root.get("serviceName"), request.getServiceName()));
         }
 
-        // TODO (Dev B): Add time range filter, keyword full-text search,
-        // combine multiple filters with Specification pattern
+        if (request.getLevel() != null) {
+            spec = spec.and((root, query, cb) ->
+                cb.equal(root.get("level"), request.getLevel()));
+        }
 
-        return results.map(this::mapToResponse);
+        if (request.getStartTime() != null && !request.getStartTime().isBlank()) {
+            Instant start = Instant.parse(request.getStartTime());
+            spec = spec.and((root, query, cb) ->
+                cb.greaterThanOrEqualTo(root.get("timestamp"), start));
+        }
+
+        if (request.getEndTime() != null && !request.getEndTime().isBlank()) {
+            Instant end = Instant.parse(request.getEndTime());
+            spec = spec.and((root, query, cb) ->
+                cb.lessThanOrEqualTo(root.get("timestamp"), end));
+        }
+
+        if (request.getKeyword() != null && !request.getKeyword().isBlank()) {
+            String like = "%" + request.getKeyword().toLowerCase() + "%";
+            spec = spec.and((root, query, cb) ->
+                cb.like(cb.lower(root.get("message")), like));
+        }
+
+        Page<LogEntry> results = logEntryRepository.findAll(spec, pageable);
+        return results.map(this::mapToResponse).getContent();
     }
 
     public LogEntryResponse getLogById(UUID id) {
