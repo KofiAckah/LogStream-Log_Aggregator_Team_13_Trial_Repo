@@ -127,3 +127,6 @@ MESSAGE_MAP = {
     "DEBUG": DEBUG_MESSAGES,
     "TRACE": TRACE_MESSAGES,
 }
+
+VALID_LEVELS   = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR"}
+REQUIRED_COLS  = {"id", "timestamp", "level", "source", "message", "service_name", "created_at"}
