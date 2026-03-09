@@ -79,5 +79,5 @@ class TestGetLogger:
         self._fresh_logger("test_file_exists")
         logger = get_logger("test_file_exists")
         logger.info("File creation test")
-        log_file = LOG_DIR / "etl_process.log"
+        log_file = LOG_DIR / "test_file_exists.log"
         assert log_file.exists()
