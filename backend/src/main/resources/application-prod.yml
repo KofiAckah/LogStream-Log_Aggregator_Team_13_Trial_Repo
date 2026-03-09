@@ -1,10 +1,4 @@
 spring:
-  application:
-    name: LogStream
-  profiles:
-    active: dev
-
-
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/logstream}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -16,7 +10,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-    defer-datasource-initialization: true
   sql:
     init:
       mode: always

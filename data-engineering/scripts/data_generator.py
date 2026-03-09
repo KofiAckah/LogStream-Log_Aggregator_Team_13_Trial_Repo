@@ -11,6 +11,9 @@ the backend team's log_entries table:
 #simulates service outages
 
 #simulates error spikes
+
+
+
 import random
 import json
 import uuid
@@ -30,6 +33,7 @@ LOG_DIR = Path("./data")  # (../data) if running from project root, adjust as ne
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Services seeded in backend's data.sql
+#We would have to log to file instead of print 
 
 
 
