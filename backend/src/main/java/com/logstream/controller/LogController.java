@@ -2,14 +2,15 @@ package com.logstream.controller;
 
 import com.logstream.dto.*;
 import com.logstream.model.User;
-import com.logstream.service.*;
+import com.logstream.service.AnalyticsService;
+import com.logstream.service.IngestionService;
+import com.logstream.service.SearchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/logs")
@@ -27,15 +28,15 @@ public class LogController {
     }
 
     @PostMapping("/batch")
-    public ResponseEntity<Map<String, Object>> ingestBatch(
+    public ResponseEntity<BatchLogEntryResponse> ingestBatch(
             @Valid @RequestBody BatchLogRequest request,
             @AuthenticationPrincipal User user) {
-        List<LogEntryResponse> results = ingestionService.ingestBatch(request);
-        return ResponseEntity.ok(Map.of("ingested", results.size(), "logs", results));
+        BatchLogEntryResponse results = ingestionService.ingestBatch(request);
+        return ResponseEntity.ok(results);
     }
 
     @PostMapping("/search")
-    public ResponseEntity<List<LogEntryResponse>> searchLogs(
+    public ResponseEntity<Page<LogEntryResponse>> searchLogs(
             @RequestBody LogSearchRequest request) {
         return ResponseEntity.ok(searchService.searchLogs(request));
     }
@@ -44,7 +45,7 @@ public class LogController {
     public ResponseEntity<AnalyticsResponse> getAnalytics(
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
-        return ResponseEntity.ok(analyticsService.getAnalytics(startDate, endDate));
+        return ResponseEntity.ok(null/*analyticsService.getAnalytics(startDate, endDate)*/);
     }
 
     // TODO: Add GET /api/logs/{id} endpoint

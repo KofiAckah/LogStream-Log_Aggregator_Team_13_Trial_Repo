@@ -1,5 +1,134 @@
 # Hello Team
 data-engineering/.env
+
+data-engineering/venv
+
+data-engineering/venv/**
+
+
+
+
+.env
+.env.*
+*.env
+!.env.example
+
+# Never commit real secrets
+
+airflow/airflow.cfg
+
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# C extensions
+
+*.so
+
+# Distribution / packaging
+
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual environments
+
+.venv/
+venv/
+env/
+ENV/
+
+
+# uv creates a virtual environment folder by default
+
+.uv/
+.python-version
+
+# Lock file (keep this IF you want reproducible builds)
+
+# If this is a library → ignore it
+
+# If this is an application → COMMIT IT
+
+# uv.lock
+
+
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# ============================================================
+
+# Logs
+
+# ============================================================
+
+*.log
+logs/
+airflow/logs/
+
+# ============================================================
+
+# Jupyter
+
+# ============================================================
+
+.ipynb_checkpoints
+
+# ============================================================
+
+# Docker
+
+# ============================================================
+
+docker-data/
+*.pid
+*.sock
+
+# Local override compose files
+
+docker-compose.override.yml
+
+# ============================================================
+
+# Database
+
+# ============================================================
+
+*.sqlite3
+*.db
+
+# ============================================================
+
+# IDEs / Editors
+
+# ============================================================
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============================================================
+
+# macOS / Windows
+
+# ============================================================
+
+.DS_Store
+Thumbs.db
+
+
+
+tmp/
+temp/
+*.tmp
 __pycache__
 data-engineering/.venv
 __init__.py
