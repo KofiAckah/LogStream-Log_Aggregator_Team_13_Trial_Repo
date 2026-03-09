@@ -53,6 +53,10 @@ class TestDBConfig:
 
         import importlib
         import config.config as cfg
-        importlib.reload(cfg)
-
-        assert cfg.DATABASE_URL == "postgresql://myuser:mypass@myhost:5432/mydb"
+        try:
+            importlib.reload(cfg)
+            assert cfg.DATABASE_URL == "postgresql://myuser:mypass@myhost:5432/mydb"
+        finally:
+            # Restore the real environment by dropping monkeypatch and reloading config
+            monkeypatch.undo()
+            importlib.reload(cfg)
