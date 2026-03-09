@@ -43,13 +43,11 @@ jobs:
           cache: maven
 
       - name: Install PostgreSQL client
-        run: sudo apt-get install -y postgresql-client
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
 
       - name: Run init SQL on PostgreSQL
-        # Creates the PARTITIONED log_entries table + extensions.
-        # Must run BEFORE the backend starts — Hibernate (ddl-auto: update)
-        # detects the existing partitioned table and works with it.
-        # Without this, Hibernate creates a plain table and ETL breaks.
         run: |
           PGPASSWORD=logstream123 psql \
             -h localhost -U logstream -d logstream \
@@ -84,7 +82,7 @@ jobs:
           POSTGRES_USER: logstream
           POSTGRES_PASSWORD: logstream123
         ports:
-          - 5432:5432
+          - 5433:5432
         options: >-
           --health-cmd "pg_isready -U logstream -d logstream"
           --health-interval 10s
@@ -109,20 +107,21 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install PostgreSQL client
-        run: sudo apt-get install -y postgresql-client
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
 
       - name: Run init SQL on PostgreSQL
-        # Creates the partitioned log_entries table required by the ETL pipeline
         run: |
           PGPASSWORD=logstream123 psql \
-            -h localhost -U logstream -d logstream \
+            -h localhost -p 5433 -U logstream -d logstream \
             -f data-engineering/db/ddl/init.sql
 
       - name: Run Data Engineering Tests
         working-directory: data-engineering
         env:
           DB_HOST: localhost
-          DB_PORT: 5432
+          DB_PORT: 5433
           DB_NAME: logstream
           DB_USER: logstream
           DB_PASSWORD: logstream123
