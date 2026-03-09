@@ -51,7 +51,7 @@ jobs:
         run: |
           PGPASSWORD=logstream123 psql \
             -h localhost -U logstream -d logstream \
-            -f data-engineering/db/ddl/init.sql
+            -f "$GITHUB_WORKSPACE/data-engineering/db/ddl/init.sql"
 
       - name: Build with Maven
         working-directory: backend
@@ -115,7 +115,7 @@ jobs:
         run: |
           PGPASSWORD=logstream123 psql \
             -h localhost -p 5433 -U logstream -d logstream \
-            -f data-engineering/db/ddl/init.sql
+            -f "$GITHUB_WORKSPACE/data-engineering/db/ddl/init.sql"
 
       - name: Run Data Engineering Tests
         working-directory: data-engineering
