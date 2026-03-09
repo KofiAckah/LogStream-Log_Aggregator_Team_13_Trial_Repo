@@ -29,7 +29,7 @@ _HOUR_WEIGHTS ,ACTIVE_SPIKES,
 ACTIVE_OUTAGES,ERROR_MESSAGES,
 MESSAGE_MAP,TRACE_MESSAGES,DEBUG_MESSAGES,WARN_MESSAGES,INFO_MESSAGES)
 
-LOG_DIR = Path("../data")
+LOG_DIR = Path("./data")  # (../data) if running from project root, adjust as needed
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Services seeded in backend's data.sql

@@ -75,18 +75,28 @@ class TestLoadData:
 class TestRunPipeline:
     """Integration-level tests for the full pipeline run."""
 
+    @patch("etl_pipeline.engine")
     @patch("etl_pipeline.load_data")
     @patch("etl_pipeline.extract_incremental_logs")
     @patch("etl_pipeline.manage_partitions")
-    def test_pipeline_logs_success(self, mock_partitions, mock_extract, mock_load, sample_logs_df):
+    def test_pipeline_logs_success(self, mock_partitions, mock_extract, mock_load, mock_engine, sample_logs_df):
         """Pipeline should complete successfully with valid data."""
         from etl_pipeline import run_pipeline
+        # Mock what extract_incremental_logs returns
         mock_extract.return_value = sample_logs_df
 
-        # Should not raise
+        # Mock connection for TRUNCATE and DELETE
+        mock_conn = MagicMock()
+        mock_engine.begin.return_value.__enter__ = MagicMock(return_value=mock_conn)
+        mock_engine.begin.return_value.__exit__ = MagicMock(return_value=False)
+
         run_pipeline()
+        
         mock_partitions.assert_called_once()
-        mock_extract.assert_called_once()
+        # It is called twice: once for 60 mins, once for 1440 mins
+        assert mock_extract.call_count == 2
+        # It is called twice: once for health dashboard, once for volume trends
+        assert mock_load.call_count == 2
 
     @patch("etl_pipeline.load_data")
     @patch("etl_pipeline.extract_incremental_logs")
@@ -97,6 +107,9 @@ class TestRunPipeline:
         mock_extract.return_value = empty_logs_df
 
         run_pipeline()
+        
+        # Called once for 60 mins, returns empty, so it safely exits
+        mock_extract.assert_called_once()
         mock_load.assert_not_called()
 
     @patch("etl_pipeline.manage_partitions", side_effect=Exception("DB connection failed"))
